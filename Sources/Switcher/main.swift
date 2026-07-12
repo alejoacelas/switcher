@@ -55,7 +55,11 @@ final class SwitcherView: NSView {
                 NSImage(cgImage: cgImage, size: preview.size).draw(in: preview, from: .zero, operation: .sourceOver, fraction: 1)
                 NSGraphicsContext.restoreGraphicsState()
             } else {
-                item.icon.draw(in: NSRect(x: preview.midX - 46, y: preview.midY - 46, width: 92, height: 92))
+                let iconSize: CGFloat = 120
+                NSGraphicsContext.saveGraphicsState()
+                NSBezierPath(roundedRect: preview, xRadius: 5, yRadius: 5).addClip()
+                item.icon.draw(in: NSRect(x: preview.midX - iconSize / 2, y: preview.midY - iconSize / 2, width: iconSize, height: iconSize))
+                NSGraphicsContext.restoreGraphicsState()
             }
 
             if index == selected {
