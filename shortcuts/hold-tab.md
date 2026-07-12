@@ -9,6 +9,6 @@ Deferred to protect the working core. macOS key repeat cannot reliably distingui
 
 First prototype target: one browser, with a visible fallback when tab discovery is unavailable. Do not add it to the core event path until the base switcher is stable.
 
-Safer trigger: use Karabiner to emit an otherwise unused key chord when Tab crosses a hold threshold. Switcher can treat that chord as an explicit request for a vertical window list without guessing from repeated Tab events.
+Safer trigger: map Caps Lock to Hyper in Karabiner. While holding Command after opening Switcher, press Caps Lock/Hyper to enter an explicit vertical window list for the selected app; Tab can then cycle that list. The distinct chord avoids guessing from repeated Tab events.
 
-For now, press X with the switcher open to minimize the selected window. X stays under the left hand near ⌘Tab; minimized windows immediately leave the list.
+Keep the macOS shortcuts: ⌘M minimizes one window; ⌘H hides an application. Switcher exposes those as M and H while Command remains held, without adding another mnemonic.

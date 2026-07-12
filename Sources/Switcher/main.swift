@@ -48,23 +48,21 @@ final class SwitcherView: NSView {
             (index == selected ? NSColor.controlAccentColor.withAlphaComponent(0.32) : NSColor.black.withAlphaComponent(0.12)).setFill()
             NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10).fill()
 
-            let preview = NSRect(x: rect.minX + 6, y: rect.minY + 6, width: rect.width - 12, height: 124)
+            let preview = NSRect(x: rect.minX + 6, y: rect.minY + 6, width: rect.width - 12, height: 104)
             if let cgImage = item.thumbnail {
                 NSGraphicsContext.saveGraphicsState()
                 NSBezierPath(roundedRect: preview, xRadius: 5, yRadius: 5).addClip()
                 NSImage(cgImage: cgImage, size: preview.size).draw(in: preview, from: .zero, operation: .sourceOver, fraction: 1)
                 NSGraphicsContext.restoreGraphicsState()
             } else {
-                item.icon.draw(in: NSRect(x: preview.midX - 54, y: preview.midY - 54, width: 108, height: 108))
+                item.icon.draw(in: NSRect(x: preview.midX - 46, y: preview.midY - 46, width: 92, height: 92))
             }
 
             if index == selected {
                 let paragraph = NSMutableParagraphStyle()
                 paragraph.lineBreakMode = .byTruncatingMiddle
                 paragraph.alignment = .center
-                NSColor.windowBackgroundColor.withAlphaComponent(0.62).setFill()
-                NSBezierPath(roundedRect: NSRect(x: rect.minX + 8, y: rect.maxY - 31, width: rect.width - 16, height: 24), xRadius: 6, yRadius: 6).fill()
-                item.title.draw(in: NSRect(x: rect.minX + 13, y: rect.maxY - 29, width: rect.width - 26, height: 21), withAttributes: [
+                item.title.draw(in: NSRect(x: rect.minX + 13, y: rect.maxY - 25, width: rect.width - 26, height: 21), withAttributes: [
                     .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
                     .foregroundColor: NSColor.labelColor,
                     .paragraphStyle: paragraph,
@@ -312,7 +310,6 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         case 3: toggleFullscreen()
         case 12: selectedApp()?.terminate(); hidePanel()
         case 4: toggleHidden()
-        case 7: toggleMinimized()
         default: break
         }
     }
