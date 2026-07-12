@@ -7,7 +7,8 @@ This is the active AltTab **⌘Tab** setup captured on 2026-07-12.
 - Include: visible, non-minimized windows, including fullscreen windows.
 - Exclude: minimized, hidden, and windowless apps.
 - Exclude: Finder, Wispr Flow, Granola, and McAfee Safari Host.
-- Appearance: compact medium thumbnail tiles, 47% container opacity, larger app icons, only the selected window's title, 100 ms delay, no menu-bar icon.
-- While open: Tab/→ next; ⇧Tab/← previous; Return focus; Escape cancel; W close; M minimize/restore; F fullscreen; Q quit; H hide/show; S search.
+- Appearance: compact medium thumbnail tiles, 47% container opacity, large primary icons with no corner icon, only the selected window's centered middle-truncated title, 100 ms delay, no menu-bar icon.
+- While open: Tab/→ next; ⇧Tab/← previous; Return focus; Escape cancel; W close; M or left-hand X minimize/restore; F fullscreen; Q quit; H hide/show; S search.
+- Lifecycle: register as a macOS login item on launch.
 
 Not reproduced: AltTab’s unused alternate shortcuts, per-shortcut overrides, settings UI, update system, telemetry, or Pro features.

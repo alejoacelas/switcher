@@ -1,5 +1,6 @@
 @preconcurrency import AppKit
 @preconcurrency import ApplicationServices
+@preconcurrency import ServiceManagement
 
 enum HealthLog {
     static let url: URL = {
@@ -47,22 +48,23 @@ final class SwitcherView: NSView {
             (index == selected ? NSColor.controlAccentColor.withAlphaComponent(0.32) : NSColor.black.withAlphaComponent(0.12)).setFill()
             NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10).fill()
 
-            let preview = NSRect(x: rect.minX + 8, y: rect.minY + 8, width: rect.width - 16, height: 94)
+            let preview = NSRect(x: rect.minX + 6, y: rect.minY + 6, width: rect.width - 12, height: 124)
             if let cgImage = item.thumbnail {
                 NSGraphicsContext.saveGraphicsState()
                 NSBezierPath(roundedRect: preview, xRadius: 5, yRadius: 5).addClip()
                 NSImage(cgImage: cgImage, size: preview.size).draw(in: preview, from: .zero, operation: .sourceOver, fraction: 1)
                 NSGraphicsContext.restoreGraphicsState()
             } else {
-                item.icon.draw(in: NSRect(x: preview.midX - 32, y: preview.midY - 32, width: 64, height: 64))
+                item.icon.draw(in: NSRect(x: preview.midX - 54, y: preview.midY - 54, width: 108, height: 108))
             }
 
-            let iconSize: CGFloat = 32
-            item.icon.draw(in: NSRect(x: rect.minX + 8, y: rect.maxY - 38, width: iconSize, height: iconSize))
             if index == selected {
                 let paragraph = NSMutableParagraphStyle()
-                paragraph.lineBreakMode = .byTruncatingTail
-                item.title.draw(in: NSRect(x: rect.minX + 46, y: rect.maxY - 33, width: rect.width - 54, height: 21), withAttributes: [
+                paragraph.lineBreakMode = .byTruncatingMiddle
+                paragraph.alignment = .center
+                NSColor.windowBackgroundColor.withAlphaComponent(0.62).setFill()
+                NSBezierPath(roundedRect: NSRect(x: rect.minX + 8, y: rect.maxY - 31, width: rect.width - 16, height: 24), xRadius: 6, yRadius: 6).fill()
+                item.title.draw(in: NSRect(x: rect.minX + 13, y: rect.maxY - 29, width: rect.width - 26, height: 21), withAttributes: [
                     .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
                     .foregroundColor: NSColor.labelColor,
                     .paragraphStyle: paragraph,
@@ -104,6 +106,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
             return
         }
         requestAccessibility()
+        registerLoginItem()
         startPermissionMonitor()
     }
 
@@ -133,6 +136,15 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         let trusted = AXIsProcessTrustedWithOptions(options)
         HealthLog.write("Accessibility trusted=\(trusted)")
+    }
+
+    private func registerLoginItem() {
+        do {
+            if SMAppService.mainApp.status != .enabled { try SMAppService.mainApp.register() }
+            HealthLog.write("login item status=\(SMAppService.mainApp.status.rawValue)")
+        } catch {
+            HealthLog.write("login item registration failed: \(error.localizedDescription)")
+        }
     }
 
     private func startPermissionMonitor() {
@@ -300,6 +312,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         case 3: toggleFullscreen()
         case 12: selectedApp()?.terminate(); hidePanel()
         case 4: toggleHidden()
+        case 7: toggleMinimized()
         default: break
         }
     }
