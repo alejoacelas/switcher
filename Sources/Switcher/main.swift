@@ -89,6 +89,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
     private var searchMode = false
     private var query = ""
     private var displayWork: DispatchWorkItem?
+    private var isSessionActive = false
     private var isVisible = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -185,7 +186,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         }
         let flags = event.flags
         let key = event.getIntegerValueField(.keyboardEventKeycode)
-        if type == .flagsChanged, isVisible, !flags.contains(.maskCommand) {
+        if type == .flagsChanged, isSessionActive, !flags.contains(.maskCommand) {
             DispatchQueue.main.async { self.commitSelection() }
             return true
         }
@@ -205,9 +206,10 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
     }
 
     private func advance(backward: Bool) {
-        if !isVisible {
+        if !isSessionActive {
             rebuildItems()
             guard !items.isEmpty else { return }
+            isSessionActive = true
             switcherView.selected = items.count > 1 ? (backward ? items.count - 1 : 1) : 0
             displayWork?.cancel()
             let work = DispatchWorkItem { [weak self] in self?.showPanel() }
@@ -254,7 +256,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
     }
 
     private func showPanel() {
-        guard !items.isEmpty else { return }
+        guard isSessionActive, !items.isEmpty else { return }
         isVisible = true
         let columns = min(items.count, 6)
         let rows = Int(ceil(Double(items.count) / 6.0))
@@ -272,6 +274,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
     private func hidePanel() {
         displayWork?.cancel()
         panel.orderOut(nil)
+        isSessionActive = false
         isVisible = false
         searchMode = false
         query = ""
@@ -279,7 +282,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
     }
 
     private func commitSelection() {
-        guard isVisible, items.indices.contains(switcherView.selected) else { hidePanel(); return }
+        guard isSessionActive, items.indices.contains(switcherView.selected) else { hidePanel(); return }
         let app = items[switcherView.selected].app
         HealthLog.write("focusing \(app.localizedName ?? app.bundleIdentifier ?? "unknown")")
         hidePanel()
