@@ -34,12 +34,12 @@ final class SwitcherView: NSView {
     override var isFlipped: Bool { true }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.windowBackgroundColor.withAlphaComponent(0.94).setFill()
+        NSColor.windowBackgroundColor.withAlphaComponent(0.47).setFill()
         NSBezierPath(roundedRect: bounds, xRadius: 16, yRadius: 16).fill()
 
         let tileWidth: CGFloat = 180
         let tileHeight: CGFloat = 142
-        let gap: CGFloat = 12
+        let gap: CGFloat = 6
         for (index, item) in items.enumerated() {
             let column = index % 6
             let row = index / 6
@@ -57,14 +57,17 @@ final class SwitcherView: NSView {
                 item.icon.draw(in: NSRect(x: preview.midX - 32, y: preview.midY - 32, width: 64, height: 64))
             }
 
-            item.icon.draw(in: NSRect(x: rect.minX + 8, y: rect.maxY - 31, width: 22, height: 22))
-            let paragraph = NSMutableParagraphStyle()
-            paragraph.lineBreakMode = .byTruncatingTail
-            item.title.draw(in: NSRect(x: rect.minX + 36, y: rect.maxY - 29, width: rect.width - 44, height: 21), withAttributes: [
-                .font: NSFont.systemFont(ofSize: 13, weight: index == selected ? .semibold : .regular),
-                .foregroundColor: NSColor.labelColor,
-                .paragraphStyle: paragraph,
-            ])
+            let iconSize: CGFloat = 32
+            item.icon.draw(in: NSRect(x: rect.minX + 8, y: rect.maxY - 38, width: iconSize, height: iconSize))
+            if index == selected {
+                let paragraph = NSMutableParagraphStyle()
+                paragraph.lineBreakMode = .byTruncatingTail
+                item.title.draw(in: NSRect(x: rect.minX + 46, y: rect.maxY - 33, width: rect.width - 54, height: 21), withAttributes: [
+                    .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
+                    .foregroundColor: NSColor.labelColor,
+                    .paragraphStyle: paragraph,
+                ])
+            }
         }
 
         if !query.isEmpty {
@@ -208,11 +211,11 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
     private func rebuildItems() {
         let ownPID = ProcessInfo.processInfo.processIdentifier
         let apps = NSWorkspace.shared.runningApplications.filter {
-            $0.processIdentifier != ownPID && !$0.isTerminated && $0.activationPolicy == .regular &&
+            $0.processIdentifier != ownPID && !$0.isTerminated && !$0.isHidden && $0.activationPolicy == .regular &&
             !SwitcherModel.excludedBundleIdentifiers.contains($0.bundleIdentifier ?? "")
         }
-        items = apps.sorted { rank($0) < rank($1) }.map { app in
-            let titleAndWindow = mainWindow(for: app)
+        items = apps.sorted { rank($0) < rank($1) }.compactMap { app in
+            guard let titleAndWindow = mainWindow(for: app) else { return nil }
             return SwitchItem(app: app, title: titleAndWindow.title ?? app.localizedName ?? "Unknown",
                               icon: app.icon ?? NSImage(), thumbnail: titleAndWindow.image)
         }
@@ -225,11 +228,11 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         activationOrder.firstIndex(of: app.processIdentifier) ?? (10_000 + Int(app.processIdentifier))
     }
 
-    private func mainWindow(for app: NSRunningApplication) -> (title: String?, image: CGImage?) {
+    private func mainWindow(for app: NSRunningApplication) -> (title: String?, image: CGImage?)? {
         guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]],
               let info = list.filter({ ($0[kCGWindowOwnerPID as String] as? pid_t) == app.processIdentifier && ($0[kCGWindowLayer as String] as? Int) == 0 })
                     .max(by: { area($0) < area($1) }),
-              let number = info[kCGWindowNumber as String] as? CGWindowID else { return (nil, nil) }
+              let number = info[kCGWindowNumber as String] as? CGWindowID else { return nil }
         let image = CGWindowListCreateImage(.null, .optionIncludingWindow, number, [.boundsIgnoreFraming, .bestResolution])
         return (info[kCGWindowName as String] as? String, image)
     }
@@ -245,7 +248,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         isVisible = true
         let columns = min(items.count, 6)
         let rows = Int(ceil(Double(items.count) / 6.0))
-        let width = CGFloat(columns) * 192 + 24
+        let width = CGFloat(columns) * 186 + 24
         let height = CGFloat(rows) * 154 + (query.isEmpty ? 24 : 56)
         panel.setContentSize(NSSize(width: width, height: height))
         switcherView.frame = NSRect(origin: .zero, size: panel.frame.size)
