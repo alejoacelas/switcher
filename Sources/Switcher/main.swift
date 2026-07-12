@@ -1,6 +1,24 @@
 @preconcurrency import AppKit
 @preconcurrency import ApplicationServices
 
+enum HealthLog {
+    static let url: URL = {
+        let directory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs")
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.appendingPathComponent("Switcher.log")
+    }()
+
+    static func write(_ message: String) {
+        let line = "\(ISO8601DateFormatter().string(from: Date())) \(message)\n"
+        let data = Data(line.utf8)
+        if !FileManager.default.fileExists(atPath: url.path) { FileManager.default.createFile(atPath: url.path, contents: nil) }
+        guard let handle = try? FileHandle(forWritingTo: url) else { return }
+        defer { try? handle.close() }
+        _ = try? handle.seekToEnd()
+        try? handle.write(contentsOf: data)
+    }
+}
+
 struct SwitchItem {
     let app: NSRunningApplication
     let title: String
@@ -62,6 +80,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
     private var switcherView: SwitcherView!
     private var eventTap: CFMachPort?
     private var eventSource: CFRunLoopSource?
+    private var permissionTimer: Timer?
     private var items: [SwitchItem] = []
     private var activationOrder: [pid_t] = []
     private var searchMode = false
@@ -70,6 +89,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
     private var isVisible = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        HealthLog.write("launched pid=\(ProcessInfo.processInfo.processIdentifier)")
         NSApp.setActivationPolicy(.accessory)
         makePanel()
         observeActivations()
@@ -81,7 +101,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
             return
         }
         requestAccessibility()
-        installEventTap()
+        startPermissionMonitor()
     }
 
     private func makePanel() {
@@ -108,7 +128,21 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
 
     private func requestAccessibility() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
+        let trusted = AXIsProcessTrustedWithOptions(options)
+        HealthLog.write("Accessibility trusted=\(trusted)")
+    }
+
+    private func startPermissionMonitor() {
+        checkPermissionAndInstallTap()
+        permissionTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            self?.checkPermissionAndInstallTap()
+        }
+    }
+
+    private func checkPermissionAndInstallTap() {
+        guard eventTap == nil else { permissionTimer?.invalidate(); permissionTimer = nil; return }
+        guard AXIsProcessTrusted() else { return }
+        installEventTap()
     }
 
     private func installEventTap() {
@@ -121,22 +155,21 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
             return controller.handle(type: type, event: event) ? nil : Unmanaged.passUnretained(event)
         }, userInfo: pointer)
         guard let eventTap else {
-            showPermissionAlert()
+            HealthLog.write("event tap creation failed; will retry")
             return
         }
         eventSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), eventSource, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
-    }
-
-    private func showPermissionAlert() {
-        let alert = NSAlert()
-        alert.messageText = "Switcher needs Accessibility access"
-        alert.informativeText = "Enable Switcher in System Settings → Privacy & Security → Accessibility, then reopen it."
-        alert.runModal()
+        HealthLog.write("event tap installed; Switcher is ready")
     }
 
     fileprivate func handle(type: CGEventType, event: CGEvent) -> Bool {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let eventTap { CGEvent.tapEnable(tap: eventTap, enable: true) }
+            HealthLog.write("event tap was disabled and has been re-enabled")
+            return false
+        }
         let flags = event.flags
         let key = event.getIntegerValueField(.keyboardEventKeycode)
         if type == .flagsChanged, isVisible, !flags.contains(.maskCommand) {
@@ -145,6 +178,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         }
         guard type == .keyDown else { return false }
         if flags.contains(.maskCommand), key == 48 {
+            HealthLog.write("received Command-Tab")
             DispatchQueue.main.async { self.advance(backward: flags.contains(.maskShift)) }
             return true
         }
@@ -219,6 +253,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         let screen = (NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.screens.first)?.visibleFrame ?? .zero
         panel.setFrameOrigin(NSPoint(x: screen.midX - width / 2, y: screen.midY - height / 2))
         panel.orderFrontRegardless()
+        HealthLog.write("showing \(items.count) apps")
     }
 
     private func hidePanel() {
@@ -233,6 +268,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
     private func commitSelection() {
         guard isVisible, items.indices.contains(switcherView.selected) else { hidePanel(); return }
         let app = items[switcherView.selected].app
+        HealthLog.write("focusing \(app.localizedName ?? app.bundleIdentifier ?? "unknown")")
         hidePanel()
         app.unhide()
         app.activate(options: [.activateAllWindows])
