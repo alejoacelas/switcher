@@ -4,6 +4,8 @@ import Testing
 @Test func filtersConfiguredExceptionsAndOrdersByRecency() {
     let input = [
         AppCandidate(bundleIdentifier: "com.apple.finder", name: "Finder", activationRank: 0),
+        AppCandidate(bundleIdentifier: "com.electron.wispr-flow", name: "Wispr Flow", activationRank: 1),
+        AppCandidate(bundleIdentifier: "com.electron.wispr-flow.accessibility-mac-app", name: "Wispr Flow", activationRank: 2),
         AppCandidate(bundleIdentifier: "com.apple.Safari", name: "Safari", activationRank: 2),
         AppCandidate(bundleIdentifier: "com.apple.Terminal", name: "Terminal", activationRank: 1),
     ]

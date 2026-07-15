@@ -228,7 +228,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         let ownPID = ProcessInfo.processInfo.processIdentifier
         let apps = NSWorkspace.shared.runningApplications.filter {
             $0.processIdentifier != ownPID && !$0.isTerminated && !$0.isHidden && $0.activationPolicy == .regular &&
-            !SwitcherModel.excludedBundleIdentifiers.contains($0.bundleIdentifier ?? "")
+            !SwitcherModel.isExcluded(bundleIdentifier: $0.bundleIdentifier ?? "")
         }
         items = apps.sorted { rank($0) < rank($1) }.compactMap { app in
             guard let titleAndWindow = mainWindow(for: app) else { return nil }

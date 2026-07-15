@@ -12,13 +12,20 @@ enum SwitcherModel {
     static let excludedBundleIdentifiers = Set([
         "com.apple.finder",
         "com.McAfee.McAfeeSafariHost",
-        "com.electron.wispr-flow",
         "com.granola.app",
     ])
+    static let excludedBundleIdentifierPrefixes = [
+        "com.electron.wispr-flow",
+    ]
+
+    static func isExcluded(bundleIdentifier: String) -> Bool {
+        excludedBundleIdentifiers.contains(bundleIdentifier) ||
+            excludedBundleIdentifierPrefixes.contains { bundleIdentifier.hasPrefix($0) }
+    }
 
     static func visibleCandidates(_ candidates: [AppCandidate], query: String = "") -> [AppCandidate] {
         candidates
-            .filter { !excludedBundleIdentifiers.contains($0.bundleIdentifier) }
+            .filter { !isExcluded(bundleIdentifier: $0.bundleIdentifier) }
             .filter { !$0.isHidden && $0.hasVisibleWindow }
             .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
             .sorted {
