@@ -24,7 +24,10 @@ struct SwitchItem {
     let app: NSRunningApplication
     let title: String
     let icon: NSImage
-    let thumbnail: CGImage?
+}
+
+struct SwitchWindow {
+    let title: String?
 }
 
 final class SwitcherView: NSView {
@@ -48,19 +51,10 @@ final class SwitcherView: NSView {
             (index == selected ? NSColor.controlAccentColor.withAlphaComponent(0.32) : NSColor.black.withAlphaComponent(0.12)).setFill()
             NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10).fill()
 
-            let preview = NSRect(x: rect.minX + 6, y: rect.minY + 6, width: rect.width - 12, height: 104)
-            if let cgImage = item.thumbnail {
-                NSGraphicsContext.saveGraphicsState()
-                NSBezierPath(roundedRect: preview, xRadius: 5, yRadius: 5).addClip()
-                NSImage(cgImage: cgImage, size: preview.size).draw(in: preview, from: .zero, operation: .sourceOver, fraction: 1)
-                NSGraphicsContext.restoreGraphicsState()
-            } else {
-                let iconSize: CGFloat = 115
-                NSGraphicsContext.saveGraphicsState()
-                NSBezierPath(roundedRect: preview, xRadius: 5, yRadius: 5).addClip()
-                item.icon.draw(in: NSRect(x: preview.midX - iconSize / 2, y: preview.midY - iconSize / 2, width: iconSize, height: iconSize))
-                NSGraphicsContext.restoreGraphicsState()
-            }
+            let iconArea = NSRect(x: rect.minX + 6, y: rect.minY + 6, width: rect.width - 12, height: 104)
+            let iconSize: CGFloat = 115
+            item.icon.draw(in: NSRect(x: iconArea.midX - iconSize / 2, y: iconArea.midY - iconSize / 2,
+                                      width: iconSize, height: iconSize))
 
             if index == selected {
                 let paragraph = NSMutableParagraphStyle()
@@ -233,7 +227,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         items = apps.sorted { rank($0) < rank($1) }.compactMap { app in
             guard let titleAndWindow = mainWindow(for: app) else { return nil }
             return SwitchItem(app: app, title: titleAndWindow.title ?? app.localizedName ?? "Unknown",
-                              icon: app.icon ?? NSImage(), thumbnail: titleAndWindow.image)
+                              icon: app.icon ?? NSImage())
         }
         if !query.isEmpty { items = items.filter { $0.title.localizedCaseInsensitiveContains(query) || ($0.app.localizedName ?? "").localizedCaseInsensitiveContains(query) } }
         switcherView.items = items
@@ -244,13 +238,11 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         activationOrder.firstIndex(of: app.processIdentifier) ?? (10_000 + Int(app.processIdentifier))
     }
 
-    private func mainWindow(for app: NSRunningApplication) -> (title: String?, image: CGImage?)? {
+    private func mainWindow(for app: NSRunningApplication) -> SwitchWindow? {
         guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]],
               let info = list.filter({ ($0[kCGWindowOwnerPID as String] as? pid_t) == app.processIdentifier && ($0[kCGWindowLayer as String] as? Int) == 0 })
-                    .max(by: { area($0) < area($1) }),
-              let number = info[kCGWindowNumber as String] as? CGWindowID else { return nil }
-        let image = CGWindowListCreateImage(.null, .optionIncludingWindow, number, [.boundsIgnoreFraming, .bestResolution])
-        return (info[kCGWindowName as String] as? String, image)
+                    .max(by: { area($0) < area($1) }) else { return nil }
+        return SwitchWindow(title: info[kCGWindowName as String] as? String)
     }
 
     private func area(_ info: [String: Any]) -> CGFloat {
