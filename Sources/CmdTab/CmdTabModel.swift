@@ -8,7 +8,7 @@ struct AppCandidate: Equatable {
     var hasVisibleWindow = true
 }
 
-enum SwitcherModel {
+enum CmdTabModel {
     static let excludedBundleIdentifiers = Set([
         "com.apple.finder",
         "com.McAfee.McAfeeSafariHost",

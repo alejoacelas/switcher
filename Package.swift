@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "Switcher",
+    name: "CmdTab",
     platforms: [.macOS(.v14)],
-    products: [.executable(name: "Switcher", targets: ["Switcher"])],
+    products: [.executable(name: "CmdTab", targets: ["CmdTab"])],
     targets: [
-        .executableTarget(name: "Switcher"),
-        .testTarget(name: "SwitcherTests", dependencies: ["Switcher"]),
+        .executableTarget(name: "CmdTab"),
+        .testTarget(name: "CmdTabTests", dependencies: ["CmdTab"]),
     ],
     swiftLanguageModes: [.v5]
 )

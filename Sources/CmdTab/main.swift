@@ -6,7 +6,7 @@ enum HealthLog {
     static let url: URL = {
         let directory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs")
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory.appendingPathComponent("Switcher.log")
+        return directory.appendingPathComponent("CmdTab.log")
     }()
 
     static func write(_ message: String) {
@@ -30,7 +30,7 @@ struct SwitchWindow {
     let title: String?
 }
 
-final class SwitcherView: NSView {
+final class CmdTabView: NSView {
     var items: [SwitchItem] = [] { didSet { needsDisplay = true } }
     var selected = 0 { didSet { needsDisplay = true } }
     var query = "" { didSet { needsDisplay = true } }
@@ -76,9 +76,9 @@ final class SwitcherView: NSView {
     }
 }
 
-final class SwitcherController: NSObject, NSApplicationDelegate {
+final class CmdTabController: NSObject, NSApplicationDelegate {
     private var panel: NSPanel!
-    private var switcherView: SwitcherView!
+    private var cmdTabView: CmdTabView!
     private var eventTap: CFMachPort?
     private var eventSource: CFRunLoopSource?
     private var permissionTimer: Timer?
@@ -108,7 +108,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
     }
 
     private func makePanel() {
-        switcherView = SwitcherView(frame: .zero)
+        cmdTabView = CmdTabView(frame: .zero)
         panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 600, height: 178),
                         styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .popUpMenu
@@ -116,7 +116,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        panel.contentView = switcherView
+        panel.contentView = cmdTabView
     }
 
     private func observeActivations() {
@@ -163,7 +163,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         eventTap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap,
                                      options: .defaultTap, eventsOfInterest: CGEventMask(mask),
                                      callback: { _, type, event, refcon in
-            let controller = Unmanaged<SwitcherController>.fromOpaque(refcon!).takeUnretainedValue()
+            let controller = Unmanaged<CmdTabController>.fromOpaque(refcon!).takeUnretainedValue()
             return controller.handle(type: type, event: event) ? nil : Unmanaged.passUnretained(event)
         }, userInfo: pointer)
         guard let eventTap else {
@@ -173,7 +173,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         eventSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), eventSource, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
-        HealthLog.write("event tap installed; Switcher is ready")
+        HealthLog.write("event tap installed; CmdTab is ready")
     }
 
     fileprivate func handle(type: CGEventType, event: CGEvent) -> Bool {
@@ -208,13 +208,13 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
             rebuildItems()
             guard !items.isEmpty else { return }
             isSessionActive = true
-            switcherView.selected = items.count > 1 ? (backward ? items.count - 1 : 1) : 0
+            cmdTabView.selected = items.count > 1 ? (backward ? items.count - 1 : 1) : 0
             displayWork?.cancel()
             let work = DispatchWorkItem { [weak self] in self?.showPanel() }
             displayWork = work
             DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100), execute: work)
         } else {
-            switcherView.selected = SwitcherModel.movedIndex(switcherView.selected, by: backward ? -1 : 1, count: items.count)
+            cmdTabView.selected = CmdTabModel.movedIndex(cmdTabView.selected, by: backward ? -1 : 1, count: items.count)
         }
     }
 
@@ -222,7 +222,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         let ownPID = ProcessInfo.processInfo.processIdentifier
         let apps = NSWorkspace.shared.runningApplications.filter {
             $0.processIdentifier != ownPID && !$0.isTerminated && !$0.isHidden && $0.activationPolicy == .regular &&
-            !SwitcherModel.isExcluded(bundleIdentifier: $0.bundleIdentifier ?? "")
+            !CmdTabModel.isExcluded(bundleIdentifier: $0.bundleIdentifier ?? "")
         }
         items = apps.sorted { rank($0) < rank($1) }.compactMap { app in
             guard let titleAndWindow = mainWindow(for: app) else { return nil }
@@ -230,8 +230,8 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
                               icon: app.icon ?? NSImage())
         }
         if !query.isEmpty { items = items.filter { $0.title.localizedCaseInsensitiveContains(query) || ($0.app.localizedName ?? "").localizedCaseInsensitiveContains(query) } }
-        switcherView.items = items
-        switcherView.selected = min(switcherView.selected, max(0, items.count - 1))
+        cmdTabView.items = items
+        cmdTabView.selected = min(cmdTabView.selected, max(0, items.count - 1))
     }
 
     private func rank(_ app: NSRunningApplication) -> Int {
@@ -259,7 +259,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         let width = CGFloat(columns) * 186 + 24
         let height = CGFloat(rows) * 154 + (query.isEmpty ? 24 : 56)
         panel.setContentSize(NSSize(width: width, height: height))
-        switcherView.frame = NSRect(origin: .zero, size: panel.frame.size)
+        cmdTabView.frame = NSRect(origin: .zero, size: panel.frame.size)
         let mouse = NSEvent.mouseLocation
         let screen = (NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.screens.first)?.visibleFrame ?? .zero
         panel.setFrameOrigin(NSPoint(x: screen.midX - width / 2, y: screen.midY - height / 2))
@@ -274,12 +274,12 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
         isVisible = false
         searchMode = false
         query = ""
-        switcherView.query = ""
+        cmdTabView.query = ""
     }
 
     private func commitSelection() {
-        guard isSessionActive, items.indices.contains(switcherView.selected) else { hidePanel(); return }
-        let app = items[switcherView.selected].app
+        guard isSessionActive, items.indices.contains(cmdTabView.selected) else { hidePanel(); return }
+        let app = items[cmdTabView.selected].app
         HealthLog.write("focusing \(app.localizedName ?? app.bundleIdentifier ?? "unknown")")
         hidePanel()
         app.unhide()
@@ -288,22 +288,22 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
 
     private func handleVisibleKey(_ key: Int64, flags: CGEventFlags, text: String) {
         if searchMode {
-            if key == 53 { query = ""; searchMode = false; rebuildItems(); switcherView.query = ""; return }
+            if key == 53 { query = ""; searchMode = false; rebuildItems(); cmdTabView.query = ""; return }
             if key == 36 { commitSelection(); return }
-            if key == 51 { if !query.isEmpty { query.removeLast() }; rebuildItems(); switcherView.query = query; return }
+            if key == 51 { if !query.isEmpty { query.removeLast() }; rebuildItems(); cmdTabView.query = query; return }
             if text.count == 1, text.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) {
                 query += text
                 rebuildItems()
-                switcherView.query = query
+                cmdTabView.query = query
             }
             return
         }
         switch key {
         case 53: hidePanel()
         case 36: commitSelection()
-        case 123: switcherView.selected = SwitcherModel.movedIndex(switcherView.selected, by: -1, count: items.count)
-        case 124: switcherView.selected = SwitcherModel.movedIndex(switcherView.selected, by: 1, count: items.count)
-        case 1: searchMode = true; query = ""; switcherView.query = "Type to search"
+        case 123: cmdTabView.selected = CmdTabModel.movedIndex(cmdTabView.selected, by: -1, count: items.count)
+        case 124: cmdTabView.selected = CmdTabModel.movedIndex(cmdTabView.selected, by: 1, count: items.count)
+        case 1: searchMode = true; query = ""; cmdTabView.query = "Type to search"
         case 13: performWindowAction(kAXCloseButtonAttribute)
         case 46: toggleMinimized()
         case 3: toggleFullscreen()
@@ -314,7 +314,7 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
     }
 
     private func selectedApp() -> NSRunningApplication? {
-        items.indices.contains(switcherView.selected) ? items[switcherView.selected].app : nil
+        items.indices.contains(cmdTabView.selected) ? items[cmdTabView.selected].app : nil
     }
 
     private func focusedWindow() -> AXUIElement? {
@@ -359,6 +359,6 @@ final class SwitcherController: NSObject, NSApplicationDelegate {
 }
 
 let app = NSApplication.shared
-let delegate = SwitcherController()
+let delegate = CmdTabController()
 app.delegate = delegate
 app.run()
